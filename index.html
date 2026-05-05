@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Command Centre"/>
+<meta name="theme-color" content="#0D0D0F"/>
+<title>Command Centre</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:#0D0D0F;font-family:'DM Sans',sans-serif;color:#F0EFE9;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
+button,input,select,textarea{font-family:'DM Sans',sans-serif;outline:none}
+button{cursor:pointer;border:none;transition:opacity .15s,transform .15s}
+button:active{opacity:.75;transform:scale(.97)}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;white-space:nowrap}
+.fade-in{animation:fi .22s ease}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.card-out{animation:co .4s ease forwards;pointer-events:none}
+@keyframes co{to{opacity:0;transform:scale(.96);max-height:0;padding:0;margin:0;overflow:hidden}}
+input[type=range]{-webkit-appearance:none;height:3px;border-radius:2px;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;border:2px solid #0D0D0F;cursor:pointer}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:#16161A;border:1px solid rgba(255,255,255,0.1);border-radius:20px 20px 0 0;padding:20px 18px 48px;width:100%;max-width:540px;max-height:93vh;overflow-y:auto}
+.handle{width:36px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:0 auto 18px}
+.lbl{font-size:10px;color:#6B6B7A;display:block;margin-bottom:5px;letter-spacing:1px;text-transform:uppercase}
+.field{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;color:#F0EFE9;font-size:14px}
+select.field{background:#0D0D0F}
+textarea.field{resize:vertical;font-size:13px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+
+// ── MASTER TASK LIST (always loaded, never empty) ─────────────────────────────
+const MASTER = [
+  {id:"t1", title:"Prospect List — 500cr Clients",       cat:"deep-work", owner:"you",      due:"2026-05-10", prio:"urgent", prog:0,  notes:"Define screening criteria, pull from network, rank list"},
+  {id:"t2", title:"Nvidia Names — Sales Navigator",       cat:"deep-work", owner:"you",      due:"2026-05-10", prio:"urgent", prog:20, notes:"Filter by seniority, geography, liquidity indicators"},
+  {id:"t3", title:"Vinit — Business Plan WhatsApp",       cat:"client",    owner:"you",      due:"",           prio:"ongoing",prog:50, notes:"Eyes and ears open. Group monitoring ongoing."},
+  {id:"t4", title:"Animesh — Credit Fund + MF Email",     cat:"client",    owner:"you",      due:"2026-05-01", prio:"urgent", prog:0,  notes:"Draft email with credit fund schedule + MF portfolio"},
+  {id:"t5", title:"Mandira — Bank Changes",               cat:"srm",       owner:"srm",      due:"",           prio:"normal", prog:30, notes:"Daily SRM check-in. Escalate if no update."},
+  {id:"t6", title:"Nvidia x2 Proposals",                  cat:"client",    owner:"you",      due:"2026-05-06", prio:"high",   prog:0,  notes:"Same template, personalised per person"},
+  {id:"t7", title:"Unnikrishnan — 3 Emails",              cat:"client",    owner:"you",      due:"2026-05-08", prio:"high",   prog:0,  notes:"Email 1: Re-engagement · Email 2: Product · Email 3: CTA"},
+  {id:"t8", title:"Pankaj Bagri — Proposal Email",        cat:"client",    owner:"you",      due:"2026-05-06", prio:"high",   prog:0,  notes:"Separate personalised email, clear CTA"},
+  {id:"t9", title:"Broadcast List — Warm Prospects",      cat:"internal",  owner:"you",      due:"2026-05-03", prio:"high",   prog:0,  notes:"Not done in over a year. Segment: hot / warm / dormant"},
+  {id:"t10",title:"Kiran — Account Opening",              cat:"srm",       owner:"both",     due:"",           prio:"normal", prog:40, notes:"Waiting on client documents. SRM + you tracking."},
+  {id:"t11",title:"Seetha — Demat Account",               cat:"srm",       owner:"srm",      due:"",           prio:"normal", prog:60, notes:"SRM handling. Check daily for updates."},
+  {id:"t12",title:"Product Report — New Pitches",         cat:"deep-work", owner:"you",      due:"2026-05-09", prio:"high",   prog:0,  notes:"1-pager per product, map to prospect segments"},
+  {id:"t13",title:"Account Migrations — Raj & Lotus",     cat:"internal",  owner:"internal", due:"",           prio:"normal", prog:80, notes:"Pending internal teams. Closure soon. Chase ops."},
+  {id:"t14",title:"📚 Read Daily (15–20 mins)",           cat:"habit",     owner:"you",      due:"",           prio:"habit",  prog:0,  notes:"1 insight per session. Link to client conversations."},
+  {id:"t15",title:"🎯 Improve Pitch (15–20 mins)",        cat:"habit",     owner:"you",      due:"",           prio:"habit",  prog:0,  notes:"Review one section, refine one talking point."},
+];
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const CATS = {
+  "deep-work":{label:"Deep Work", color:"#E84545", bg:"rgba(232,69,69,0.12)"},
+  "client":   {label:"Client",    color:"#F5A623", bg:"rgba(245,166,35,0.12)"},
+  "srm":      {label:"SRM",       color:"#4A9EFF", bg:"rgba(74,158,255,0.12)"},
+  "internal": {label:"Internal",  color:"#A78BFA", bg:"rgba(167,139,250,0.12)"},
+  "habit":    {label:"Habit",     color:"#34D399", bg:"rgba(52,211,153,0.12)"},
+};
+const PRIO_ORDER  = {urgent:0, high:1, normal:2, ongoing:3, habit:4};
+const PRIO_LABELS = {urgent:"🔴 Urgent", high:"🟠 High", normal:"🔵 Normal", ongoing:"🔄 Ongoing", habit:"🟢 Habit"};
+const OWN_LABELS  = {you:"You", srm:"SRM", both:"Shared", internal:"Internal Team"};
+
+// ── STORAGE ───────────────────────────────────────────────────────────────────
+function lsGet(k, fb){ try{ const s=localStorage.getItem(k); return s ? JSON.parse(s) : fb; }catch{ return fb; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+
+// Merge MASTER with any saved overrides (progress, deletions, new tasks)
+function loadTasks(){
+  const overrides = lsGet("cc_overrides", {});   // {id: taskObj or null(deleted)}
+  const extras    = lsGet("cc_extras",    []);    // user-added tasks
+  const result = [];
+  for(const t of MASTER){
+    if(overrides[t.id] === null) continue;        // deleted
+    result.push({...t, ...(overrides[t.id]||{})}); // merged with edits
+  }
+  for(const t of extras){
+    if(overrides[t.id] !== null) result.push({...t, ...(overrides[t.id]||{})});
+  }
+  return result;
+}
+
+function saveTaskEdit(task){
+  const overrides = lsGet("cc_overrides", {});
+  overrides[task.id] = task;
+  lsSet("cc_overrides", overrides);
+}
+
+function saveTaskDelete(id){
+  const overrides = lsGet("cc_overrides", {});
+  overrides[id] = null;
+  lsSet("cc_overrides", overrides);
+  // remove from extras if present
+  const extras = lsGet("cc_extras", []).filter(t=>t.id!==id);
+  lsSet("cc_extras", extras);
+}
+
+function saveNewTask(task){
+  const extras = lsGet("cc_extras", []);
+  extras.push(task);
+  lsSet("cc_extras", extras);
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let tasks  = loadTasks();
+let log    = lsGet("cc_log", []);
+let modal  = null;   // null | taskObj (id=null means new)
+let tab    = "today";
+let filter = "all";
+let search = "";
+
+function uid(){ return "u" + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+
+function daysLeft(due){
+  if(!due) return null;
+  const d=new Date(due), t=new Date(); t.setHours(0,0,0,0);
+  const n=Math.ceil((d-t)/864e5);
+  if(n<0)  return {txt:"Overdue",   col:"#E84545"};
+  if(n===0)return {txt:"Due Today", col:"#F5A623"};
+  if(n<=3) return {txt:n+"d left",  col:"#F5A623"};
+  return           {txt:n+"d left",  col:"#6B6B7A"};
+}
+
+function esc(s=""){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+// ── SVG RING ──────────────────────────────────────────────────────────────────
+function ring(pct, color, size=40){
+  const r=(size-6)/2, c=2*Math.PI*r, dash=(pct/100)*c;
+  return `<svg width="${size}" height="${size}" style="transform:rotate(-90deg);flex-shrink:0">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="3"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="3"
+      stroke-dasharray="${dash} ${c}" stroke-linecap="round" style="transition:stroke-dasharray .35s ease"/>
+  </svg>`;
+}
+
+// ── TASK CARD ─────────────────────────────────────────────────────────────────
+function taskCard(task){
+  const cat = CATS[task.cat] || CATS.client;
+  const dl  = daysLeft(task.due);
+  const safeTask = esc(JSON.stringify(task));
+  return `
+<div id="card-${task.id}" class="fade-in" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:13px 13px;margin-bottom:7px">
+  <div style="display:flex;align-items:flex-start;gap:11px">
+    <div style="position:relative;flex-shrink:0" id="ring-wrap-${task.id}">
+      ${ring(task.prog, cat.color)}
+      <div id="rlbl-${task.id}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:8px;color:${cat.color};font-weight:700">${task.prog}%</div>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px">
+        <span style="font-size:13px;font-weight:500;color:#F0EFE9">${esc(task.title)}</span>
+        <span class="tag" style="background:${cat.bg};color:${cat.color}">${cat.label}</span>
+        <span class="tag" style="background:rgba(255,255,255,0.05);color:#9CA3AF">${OWN_LABELS[task.owner]||task.owner}</span>
+        ${dl ? `<span class="tag" style="background:${dl.col}22;color:${dl.col}">${dl.txt}</span>` : ""}
+      </div>
+      ${task.notes ? `<div style="font-size:11px;color:#4B4B5A;margin-bottom:8px;line-height:1.55">${esc(task.notes)}</div>` : ""}
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" min="0" max="100" step="5" value="${task.prog}"
+          style="flex:1;max-width:150px;accent-color:${cat.color};background:linear-gradient(to right,${cat.color} ${task.prog}%,rgba(255,255,255,0.1) ${task.prog}%)"
+          oninput="updateProg('${task.id}',+this.value,'${cat.color}');this.style.background='linear-gradient(to right,${cat.color} '+this.value+'%,rgba(255,255,255,0.1) '+this.value+'%)'"/>
+        <span style="font-size:9px;color:#4B4B5A">progress</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+      <button onclick="markDone('${task.id}')" style="padding:6px 10px;border-radius:8px;background:rgba(52,211,153,0.12);color:#34D399;border:1px solid rgba(52,211,153,0.22);font-size:12px;font-weight:600">✓ Done</button>
+      <div style="display:flex;gap:4px">
+        <button onclick='openModal("${task.id}")' style="flex:1;padding:4px 7px;border-radius:7px;background:rgba(255,255,255,0.05);color:#9CA3AF;border:1px solid rgba(255,255,255,0.08);font-size:11px">Edit</button>
+        <button onclick="deleteTask('${task.id}')" style="padding:4px 7px;border-radius:7px;background:rgba(232,69,69,0.08);color:#E84545;border:1px solid rgba(232,69,69,0.2);font-size:11px">✕</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────────
+function updateProg(id, val, color){
+  tasks = tasks.map(t => t.id===id ? {...t, prog:val} : t);
+  const t = tasks.find(t=>t.id===id);
+  if(t) saveTaskEdit(t);
+  const lbl = document.getElementById("rlbl-"+id);
+  if(lbl) lbl.textContent = val+"%";
+}
+
+function markDone(id){
+  const task = tasks.find(t=>t.id===id);
+  if(!task) return;
+  const el = document.getElementById("card-"+id);
+  if(el){ el.classList.add("card-out"); }
+  setTimeout(()=>{
+    tasks = tasks.filter(t=>t.id!==id);
+    log   = [{...task, doneAt:new Date().toISOString()}, ...log];
+    saveTaskDelete(id);
+    lsSet("cc_log", log);
+    render();
+  }, 420);
+}
+
+function deleteTask(id){
+  if(!confirm("Delete this task permanently?")) return;
+  tasks = tasks.filter(t=>t.id!==id);
+  saveTaskDelete(id);
+  render();
+}
+
+function reopenTask(i){
+  const entry = log[i];
+  if(!entry) return;
+  const {doneAt, ...task} = entry;
+  tasks.push({...task, status:"active"});
+  // restore: remove from overrides if master task, or re-add to extras
+  const isMaster = MASTER.find(m=>m.id===task.id);
+  if(isMaster){
+    const ov = lsGet("cc_overrides",{}); delete ov[task.id]; lsSet("cc_overrides", ov);
+  } else {
+    saveNewTask(task);
+  }
+  log = log.filter((_,idx)=>idx!==i);
+  lsSet("cc_log", log);
+  render();
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function openModal(id){
+  modal = id ? tasks.find(t=>t.id===id)||null : {id:null,title:"",cat:"client",owner:"you",due:"",prio:"normal",prog:0,notes:""};
+  render();
+}
+function closeModal(){ modal=null; render(); }
+
+function saveModal(){
+  const title = document.getElementById("m-title").value.trim();
+  if(!title){ alert("Please enter a title."); return; }
+  const form = {
+    title,
+    cat:   document.getElementById("m-cat").value,
+    prio:  document.getElementById("m-prio").value,
+    owner: document.getElementById("m-owner").value,
+    due:   document.getElementById("m-due").value,
+    prog:  +document.getElementById("m-prog").value,
+    notes: document.getElementById("m-notes").value.trim(),
+  };
+  if(!modal.id){
+    const newTask = {...form, id:uid(), status:"active"};
+    tasks.push(newTask);
+    saveNewTask(newTask);
+  } else {
+    tasks = tasks.map(t => t.id===modal.id ? {...t,...form} : t);
+    saveTaskEdit(tasks.find(t=>t.id===modal.id));
+  }
+  modal = null;
+  render();
+}
+
+function modalHTML(){
+  const t   = modal;
+  const isNew = !t.id;
+  const cat = CATS[t.cat]||CATS.client;
+  return `
+<div class="sheet-bg" id="sheet-bg" onclick="if(event.target===this)closeModal()">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div style="font-family:'Playfair Display',serif;font-size:19px;font-weight:700;margin-bottom:16px;color:#F0EFE9">${isNew?"✦ New Task":"Edit Task"}</div>
+
+    <div style="margin-bottom:12px">
+      <label class="lbl">Title *</label>
+      <input id="m-title" class="field" placeholder="e.g. Call Animesh re credit fund" value="${esc(t.title)}"/>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <label class="lbl">Notes / Context</label>
+      <textarea id="m-notes" class="field" rows="2" placeholder="Context, next steps...">${esc(t.notes)}</textarea>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <label class="lbl">Category</label>
+        <select id="m-cat" class="field">
+          ${Object.entries(CATS).map(([k,v])=>`<option value="${k}"${t.cat===k?" selected":""}>${v.label}</option>`).join("")}
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Priority</label>
+        <select id="m-prio" class="field">
+          ${Object.keys(PRIO_ORDER).map(p=>`<option value="${p}"${t.prio===p?" selected":""}>${PRIO_LABELS[p]}</option>`).join("")}
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Owner</label>
+        <select id="m-owner" class="field">
+          ${Object.entries(OWN_LABELS).map(([k,v])=>`<option value="${k}"${t.owner===k?" selected":""}>${v}</option>`).join("")}
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Deadline</label>
+        <input id="m-due" type="date" class="field" value="${esc(t.due)}" style="color-scheme:dark"/>
+      </div>
+    </div>
+
+    <div style="margin-bottom:22px">
+      <label class="lbl">Progress — <span id="prog-val">${t.prog}</span>%</label>
+      <input id="m-prog" type="range" min="0" max="100" step="5" value="${t.prog}"
+        style="width:100%;accent-color:${cat.color};background:linear-gradient(to right,${cat.color} ${t.prog}%,rgba(255,255,255,0.1) ${t.prog}%)"
+        oninput="document.getElementById('prog-val').textContent=this.value;this.style.background='linear-gradient(to right,${cat.color} '+this.value+'%,rgba(255,255,255,0.1) '+this.value+'%)'"/>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button onclick="closeModal()" style="flex:1;padding:13px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#6B6B7A;font-size:14px">Cancel</button>
+      <button onclick="saveModal()" style="flex:2;padding:13px;border-radius:12px;background:#4A9EFF;color:#fff;font-size:14px;font-weight:600">${isNew?"Add Task":"Save Changes"}</button>
+    </div>
+  </div>
+</div>`;
+}
+
+// ── TAB: TODAY ────────────────────────────────────────────────────────────────
+function todayTab(){
+  const urgent = tasks.filter(t=>t.prio==="urgent");
+  const srm    = tasks.filter(t=>t.cat==="srm");
+  const doneToday = log.filter(t=>new Date(t.doneAt).toDateString()===new Date().toDateString()).length;
+
+  return `<div style="padding:14px 16px">
+
+    <div style="background:linear-gradient(135deg,rgba(74,158,255,0.1),rgba(167,139,250,0.07));border:1px solid rgba(74,158,255,0.15);border-radius:16px;padding:16px;margin-bottom:16px">
+      <div style="font-size:9px;color:#4A9EFF;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;font-weight:500">Good Morning ☀️</div>
+      <div style="font-size:13px;color:#E0DFD9;line-height:1.65">
+        You have <strong style="color:#E84545">${urgent.length} urgent task${urgent.length!==1?"s":""}</strong> and
+        <strong style="color:#4A9EFF">${srm.length} SRM item${srm.length!==1?"s":""}</strong> to review today.
+        ${doneToday>0?`<br>✅ <strong style="color:#34D399">${doneToday} task${doneToday!==1?"s":""} closed</strong> today. Keep going!`:""}
+      </div>
+    </div>
+
+    <div style="font-size:10px;color:#6B6B7A;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      <span>🔴 Urgent</span><div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div>
+    </div>
+    ${urgent.length===0
+      ? `<p style="font-size:12px;color:#4B4B5A;margin-bottom:14px">No urgent tasks — looking good! ✅</p>`
+      : urgent.map(taskCard).join("")}
+
+    <div style="font-size:10px;color:#6B6B7A;letter-spacing:1px;text-transform:uppercase;margin:16px 0 10px;display:flex;align-items:center;gap:8px">
+      <span>🔄 SRM Check-ins</span><div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div>
+    </div>
+    ${srm.length===0
+      ? `<p style="font-size:12px;color:#4B4B5A">No SRM tasks active.</p>`
+      : srm.map(t=>`
+      <div class="fade-in" style="background:rgba(74,158,255,0.06);border:1px solid rgba(74,158,255,0.14);border-radius:12px;padding:11px 13px;margin-bottom:7px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:18px;flex-shrink:0">👤</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;color:#F0EFE9">${esc(t.title)}</div>
+          <div style="font-size:10px;color:#4B4B5A;margin-top:2px">${esc(t.notes)}</div>
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          <button onclick='openModal("${t.id}")' style="padding:4px 9px;border-radius:7px;background:rgba(255,255,255,0.05);color:#9CA3AF;border:1px solid rgba(255,255,255,0.08);font-size:10px">Edit</button>
+          <button onclick="markDone('${t.id}')" style="padding:4px 9px;border-radius:7px;background:rgba(52,211,153,0.1);color:#34D399;border:1px solid rgba(52,211,153,0.2);font-size:11px;font-weight:600">✓</button>
+        </div>
+      </div>`).join("")}
+  </div>`;
+}
+
+// ── TAB: ALL TASKS ────────────────────────────────────────────────────────────
+function tasksTab(){
+  const q = search.toLowerCase();
+  const filtered = tasks
+    .filter(t => filter==="all" || t.cat===filter)
+    .filter(t => !q || t.title.toLowerCase().includes(q) || (t.notes||"").toLowerCase().includes(q))
+    .sort((a,b) => PRIO_ORDER[a.prio] - PRIO_ORDER[b.prio]);
+
+  return `<div style="padding:14px 16px">
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <input placeholder="🔍 Search..." value="${esc(search)}"
+        oninput="search=this.value;renderContent()"
+        style="flex:1 1 130px;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#F0EFE9;font-size:12px"/>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        ${[["all","All"],...Object.entries(CATS).map(([k,v])=>[k,v.label])].map(([k,l])=>`
+        <button onclick="filter='${k}';renderContent()"
+          style="padding:5px 10px;border-radius:20px;font-size:10px;font-weight:500;
+          background:${filter===k?(CATS[k]?.bg||"rgba(255,255,255,0.1)"):"rgba(255,255,255,0.04)"};
+          color:${filter===k?(CATS[k]?.color||"#F0EFE9"):"#6B6B7A"};
+          border:1px solid ${filter===k?(CATS[k]?.color||"#4A9EFF")+"44":"rgba(255,255,255,0.07)"}">${l}</button>`).join("")}
+      </div>
+    </div>
+    ${filtered.length===0
+      ? `<div style="text-align:center;padding:52px 0;color:#6B6B7A"><div style="font-size:32px;margin-bottom:10px">${q?"🔍":"🎯"}</div><div style="font-size:13px">${q?"No tasks match your search":"All clear! Tap + to add a task."}</div></div>`
+      : filtered.map(taskCard).join("")}
+  </div>`;
+}
+
+// ── TAB: DONE LOG ─────────────────────────────────────────────────────────────
+function logTab(){
+  if(!log.length) return `
+    <div style="text-align:center;padding:60px 0;color:#6B6B7A">
+      <div style="font-size:36px;margin-bottom:10px">🏆</div>
+      <div style="font-size:13px">No completed tasks yet. Go close something!</div>
+    </div>`;
+
+  const byDate = {};
+  log.forEach((t,i)=>{
+    const d=new Date(t.doneAt).toDateString();
+    (byDate[d]||(byDate[d]=[])).push({...t,_i:i});
+  });
+
+  return `<div style="padding:14px 16px">
+    ${Object.entries(byDate).map(([date,items])=>`
+    <div class="fade-in" style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:10px;color:#6B6B7A;letter-spacing:1px;text-transform:uppercase;white-space:nowrap">
+          ${new Date(date).toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"})}
+        </span>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div>
+        <span style="font-size:10px;color:#34D399;white-space:nowrap">${items.length} closed</span>
+      </div>
+      ${items.map(t=>{
+        const cat=CATS[t.cat]||CATS.client;
+        return `
+        <div style="background:rgba(52,211,153,0.04);border:1px solid rgba(52,211,153,0.1);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="width:28px;height:28px;border-radius:50%;background:rgba(52,211,153,0.15);display:flex;align-items:center;justify-content:center;color:#34D399;font-size:13px;flex-shrink:0">✓</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+              <span style="font-size:12px;font-weight:500;color:#6B6B7A;text-decoration:line-through;text-decoration-color:rgba(52,211,153,0.4)">${esc(t.title)}</span>
+              <span class="tag" style="background:${cat.bg};color:${cat.color}">${cat.label}</span>
+            </div>
+            <div style="font-size:10px;color:#3A3A48;margin-top:2px">${new Date(t.doneAt).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}</div>
+          </div>
+          <button onclick="reopenTask(${t._i})" style="padding:4px 10px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#6B6B7A;font-size:11px;flex-shrink:0">Reopen</button>
+        </div>`;
+      }).join("")}
+    </div>`).join("")}
+  </div>`;
+}
+
+// ── PARTIAL RE-RENDER (tabs only, keeps header) ───────────────────────────────
+function renderContent(){
+  const el = document.getElementById("tab-content");
+  if(el) el.innerHTML = tab==="today" ? todayTab() : tab==="tasks" ? tasksTab() : logTab();
+}
+
+// ── FULL RENDER ───────────────────────────────────────────────────────────────
+function render(){
+  const active     = tasks.length;
+  const urgent     = tasks.filter(t=>t.prio==="urgent").length;
+  const srm        = tasks.filter(t=>t.cat==="srm").length;
+  const doneToday  = log.filter(t=>new Date(t.doneAt).toDateString()===new Date().toDateString()).length;
+  const TABS       = [["today","Today"],["tasks","Tasks ("+active+")"],["log","Done ("+log.length+")"]];
+
+  document.getElementById("app").innerHTML = `
+<div style="min-height:100vh;background:#0D0D0F;padding-bottom:52px">
+
+  <!-- HEADER -->
+  <div style="padding:52px 16px 0;background:linear-gradient(180deg,rgba(74,158,255,0.07) 0%,transparent 100%)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div>
+        <div style="font-size:9px;letter-spacing:3px;color:#4A9EFF;text-transform:uppercase;margin-bottom:4px;font-weight:500">Private Banking · Work OS</div>
+        <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#F0EFE9;letter-spacing:-0.3px">Command Centre</div>
+        <div style="font-size:11px;color:#4B4B5A;margin-top:2px">${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"})}</div>
+      </div>
+      <button onclick="openModal(null)" style="padding:10px 14px;border-radius:12px;background:#4A9EFF;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px;flex-shrink:0;margin-top:4px">
+        <span style="font-size:18px;line-height:1;margin-top:-1px">+</span> Add
+      </button>
+    </div>
+
+    <!-- STATS -->
+    <div style="display:flex;gap:6px;margin-top:14px">
+      ${[{l:"Active",v:active,c:"#F0EFE9"},{l:"Urgent",v:urgent,c:"#E84545"},{l:"SRM",v:srm,c:"#4A9EFF"},{l:"Done Today",v:doneToday,c:"#34D399"}].map(s=>`
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:8px 0;text-align:center;flex:1">
+        <div style="font-size:17px;font-weight:600;color:${s.c};line-height:1">${s.v}</div>
+        <div style="font-size:8px;color:#6B6B7A;margin-top:3px;letter-spacing:0.4px;text-transform:uppercase">${s.l}</div>
+      </div>`).join("")}
+    </div>
+
+    <!-- TABS -->
+    <div style="display:flex;gap:2px;margin-top:16px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      ${TABS.map(([k,l])=>`
+      <button onclick="tab='${k}';renderContent()"
+        style="padding:8px 12px;border-radius:8px 8px 0 0;font-size:12px;font-weight:500;
+        background:${tab===k?"rgba(255,255,255,0.06)":"transparent"};
+        color:${tab===k?"#F0EFE9":"#6B6B7A"};
+        border-bottom:${tab===k?"2px solid #4A9EFF":"2px solid transparent"}">${l}</button>`).join("")}
+    </div>
+  </div>
+
+  <!-- TAB CONTENT -->
+  <div id="tab-content">
+    ${tab==="today" ? todayTab() : tab==="tasks" ? tasksTab() : logTab()}
+  </div>
+
+  <!-- MODAL -->
+  ${modal ? modalHTML() : ""}
+
+</div>`;
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
